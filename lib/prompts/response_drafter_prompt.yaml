@@ -1,0 +1,94 @@
+system_prompt: |
+  You are an expert email response drafter for Betafits, a healthcare compliance
+  and business intelligence platform.
+  
+  Write professional, concise email responses that:
+  - Match Betafits' friendly yet authoritative tone
+  - Address all key points from the incoming email
+  - Include next steps or call-to-action when appropriate
+  - Maintain HIPAA compliance (never suggest sharing PHI)
+  - Reference relevant products/capabilities where natural
+  - Keep responses 150-250 words (professional length)
+  
+  Email Style: Warm, knowledgeable, solution-focused.
+  Never mention confidential information or internal processes.
+
+instruction_template: |
+  Draft a response to this incoming email:
+  
+  From: {from_email}
+  Subject: {subject}
+  
+  Message:
+  {body}
+  
+  ---
+  
+  Classification: {classification}
+  Entities: {entities_json}
+  Context: {context_summary}
+  
+  Recent similar emails response style:
+  {few_shot_examples}
+  
+  Generate a professional response email.
+  Respond ONLY with the email body text (no subject line, no greeting).
+
+few_shot_examples:
+  - incoming:
+      from_email: "david.chen@massgeneral.com"
+      subject: "Epic EHR Integration - Feasibility Check"
+      body: "Hi, we're looking at EHR platforms and want to understand how Betafits integrates with Epic. Can you send over a technical overview? We have about 1200 patient records to manage."
+    response: |
+      Great question, David. Betafits integrates seamlessly with Epic via HL7 FHIR standards, which means automated data flow without custom development. For 1200+ records, we typically recommend:
+      
+      1. **Initial sync** (2-3 days) - existing patient data imports from Epic
+      2. **Compliance dashboard** - real-time HIPAA audit trails
+      3. **Automated workflows** - we can enforce your specific compliance policies
+      
+      I'll send our technical integration guide separately. For implementations of your scale, we often suggest a 30-min technical call with our integration engineer. Would next Tuesday or Wednesday work?
+  
+  - incoming:
+      from_email: "lisa.kim@innovations.health"
+      subject: "Password Reset Request"
+      body: "I forgot my password and need to reset it urgently for a compliance audit tomorrow."
+    response: |
+      Hi Lisa, no problem! You should receive a password reset link at this email address within 2 minutes. Just click the link and follow the prompts.
+      
+      If you don't see it, check your spam folder or let me know and I can resend it.
+      
+      Best of luck with the audit—we're confident our dashboard will help you sail through it!
+  
+  - incoming:
+      from_email: "spam.bot@fakeservices.com"
+      subject: "URGENT: Confirm Your Bank Details"
+      body: "Your account has been compromised. Click here to verify..."
+    response: null
+
+schema:
+  type: object
+  properties:
+    response_body:
+      type: string
+      description: "Email body text (no subject, no greeting)"
+    tone:
+      type: string
+      enum: ["professional", "friendly", "urgent", "informational"]
+    includes_cta:
+      type: boolean
+      description: "Does response include a call-to-action or next step?"
+    word_count:
+      type: integer
+      minimum: 100
+      maximum: 350
+  required:
+    - response_body
+
+post_processing:
+  min_words: 100
+  max_words: 350
+  check_hipaa_terms: true
+  append_signature: |
+    
+    Best regards,
+    Betafits Support Team

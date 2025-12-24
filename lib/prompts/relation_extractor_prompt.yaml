@@ -1,0 +1,156 @@
+"""
+Relation Extractor LLM Prompt Template
+
+This prompt template is used by Node 4 (relation_extractor_node) to extract
+relationships between entities identified by the entity extractor.
+"""
+
+system_prompt: |
+  You are an expert relationship extraction system for Betafits knowledge graph.
+  Extract relationships between entities mentioned in the email.
+  
+  Relationship types:
+  - **works_for**: Person works at Organization
+  - **located_in**: Organization/Person located in Location
+  - **manages**: Organization/Person manages resource
+  - **uses**: Organization/Person uses Product
+  - **interested_in**: Organization/Person interested in Opportunity
+  - **mentions**: References/talks about
+  - **requests**: Asks for or needs
+  - **offers**: Provides or suggests
+  
+  Respond ONLY with valid JSON (no markdown, no extra text):
+  {
+    "relations": [
+      {
+        "source": "entity text",
+        "source_type": "entity type",
+        "relation": "relation_type",
+        "target": "entity text",
+        "target_type": "entity type",
+        "confidence": 0.0-1.0,
+        "evidence": "quote or reference from text"
+      }
+    ]
+  }
+  
+  Only include relations with confidence >= 0.7.
+
+instruction_template: |
+  Extract relationships between entities:
+  
+  Entities: {entities_json}
+  
+  Email Context:
+  From: {from_email}
+  Subject: {subject}
+  Body: {body_preview}
+  
+  Identify semantic relationships between entities.
+
+few_shot_examples:
+  - input:
+      entities:
+        - text: "Sarah Johnson"
+          type: "PERSON"
+        - text: "Mass General"
+          type: "ORGANIZATION"
+        - text: "Massachusetts"
+          type: "LOCATION"
+        - text: "Epic EHR integration"
+          type: "OPPORTUNITY"
+      body_preview: "I'm Sarah Johnson, Director of IT at Mass General in Boston, Massachusetts. We're interested in Epic EHR integration."
+    output:
+      relations:
+        - source: "Sarah Johnson"
+          source_type: "PERSON"
+          relation: "works_for"
+          target: "Mass General"
+          target_type: "ORGANIZATION"
+          confidence: 0.96
+          evidence: "Director of IT at Mass General"
+        - source: "Mass General"
+          source_type: "ORGANIZATION"
+          relation: "located_in"
+          target: "Massachusetts"
+          target_type: "LOCATION"
+          confidence: 0.94
+          evidence: "Boston, Massachusetts"
+        - source: "Sarah Johnson"
+          source_type: "PERSON"
+          relation: "interested_in"
+          target: "Epic EHR integration"
+          target_type: "OPPORTUNITY"
+          confidence: 0.92
+          evidence: "interested in Epic EHR integration"
+  
+  - input:
+      entities:
+        - text: "ProcessFlow"
+          type: "PRODUCT"
+        - text: "Innova Health"
+          type: "ORGANIZATION"
+        - text: "Illinois"
+          type: "LOCATION"
+        - text: "Betafits integration"
+          type: "OPPORTUNITY"
+      body_preview: "Our ProcessFlow platform is used by 300+ healthcare providers. Innova Health operates 45 clinics across Illinois. We're interested in Betafits integration."
+    output:
+      relations:
+        - source: "Innova Health"
+          source_type: "ORGANIZATION"
+          relation: "uses"
+          target: "ProcessFlow"
+          target_type: "PRODUCT"
+          confidence: 0.93
+          evidence: "Our ProcessFlow platform"
+        - source: "Innova Health"
+          source_type: "ORGANIZATION"
+          relation: "located_in"
+          target: "Illinois"
+          target_type: "LOCATION"
+          confidence: 0.94
+          evidence: "operates 45 clinics across Illinois"
+        - source: "Innova Health"
+          source_type: "ORGANIZATION"
+          relation: "interested_in"
+          target: "Betafits integration"
+          target_type: "OPPORTUNITY"
+          confidence: 0.91
+          evidence: "interested in Betafits integration"
+
+schema:
+  type: object
+  properties:
+    relations:
+      type: array
+      items:
+        type: object
+        properties:
+          source:
+            type: string
+          source_type:
+            type: string
+          relation:
+            type: string
+            enum: ["works_for", "located_in", "manages", "uses", "interested_in", "mentions", "requests", "offers"]
+          target:
+            type: string
+          target_type:
+            type: string
+          confidence:
+            type: number
+            minimum: 0.7
+            maximum: 1.0
+          evidence:
+            type: string
+        required:
+          - source
+          - source_type
+          - relation
+          - target
+          - target_type
+          - confidence
+          - evidence
+  required:
+    - relations
