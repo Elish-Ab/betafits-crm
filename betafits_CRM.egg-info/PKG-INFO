@@ -1,0 +1,65 @@
+Metadata-Version: 2.4
+Name: betafits-CRM
+Version: 0.1.0
+Summary: A complete CRM brain powered by LangGraph, Graphiti, and Supabase.
+Author-email: Betafits Team <admin@betafits.com>
+License: MIT
+Project-URL: Homepage, https://github.com/TeamBetafits/email-ingestor-pipeline
+Project-URL: Documentation, https://github.com/TeamBetafits/email-ingestor-pipeline/tree/main/docs
+Project-URL: Repository, https://github.com/TeamBetafits/email-ingestor-pipeline.git
+Project-URL: Issues, https://github.com/TeamBetafits/email-ingestor-pipeline/issues
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: langgraph>=0.2.0
+Requires-Dist: langchain>=0.1.0
+Requires-Dist: langchain-core>=0.1.0
+Requires-Dist: langchain-community>=0.0.10
+Requires-Dist: langchain-openai>=0.1.0
+Requires-Dist: langgraph-checkpoint==2.1.0
+Requires-Dist: langgraph-checkpoint-sqlite==2.0.10
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: pydantic-settings>=2.0.0
+Requires-Dist: supabase[aio]>=2.0.0
+Requires-Dist: sqlalchemy>=2.0.0
+Requires-Dist: psycopg2-binary>=2.9.0
+Requires-Dist: graphiti-core>=0.1.0
+Requires-Dist: urllib3>=2.0.0
+Requires-Dist: requests>=2.31.0
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: email-validator>=2.0.0
+Requires-Dist: google-auth>=2.25.0
+Requires-Dist: google-auth-oauthlib>=1.1.0
+Requires-Dist: google-auth-httplib2>=0.2.0
+Requires-Dist: google-api-python-client>=2.100.0
+Requires-Dist: click>=8.1.0
+Requires-Dist: typer>=0.9.0
+Requires-Dist: fastapi>=0.104.0
+Requires-Dist: uvicorn[standard]>=0.24.0
+Requires-Dist: python-json-logger>=2.0.0
+Requires-Dist: python-dateutil>=2.8.0
+Requires-Dist: aiosqlite==0.21.0
+Requires-Dist: postgrest>=2.27.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
+Requires-Dist: pytest-mock>=3.12.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: isort>=5.12.0; extra == "dev"
+Requires-Dist: mypy>=1.7.0; extra == "dev"
+Requires-Dist: flake8>=6.1.0; extra == "dev"
+Requires-Dist: bandit>=1.7.0; extra == "dev"
+Requires-Dist: pre-commit>=3.5.0; extra == "dev"
+Requires-Dist: responses>=0.24.0; extra == "dev"
+Requires-Dist: factory-boy>=3.3.0; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: sphinx>=7.0.0; extra == "docs"
+Requires-Dist: sphinx-rtd-theme>=2.0.0; extra == "docs"
+
+

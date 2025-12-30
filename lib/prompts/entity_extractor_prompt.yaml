@@ -1,0 +1,127 @@
+"""
+Entity Extractor LLM Prompt Template
+
+This prompt template is used by Node 3 (entity_extractor_node) to extract
+named entities from emails: PERSON, ORGANIZATION, PRODUCT, LOCATION, OPPORTUNITY
+"""
+
+system_prompt: |
+  You are an expert named entity extraction system for Betafits healthcare platform.
+  Extract all relevant entities from the email. Do NOT extract medical/health information.
+  
+  Entity types:
+  - **PERSON**: Individual names (decision makers, contacts)
+  - **ORGANIZATION**: Company names, institutions, healthcare systems
+  - **PRODUCT**: Product/service names, platform features
+  - **LOCATION**: Cities, regions, states, countries
+  - **OPPORTUNITY**: Business opportunities, use cases, deals
+  
+  IMPORTANT HIPAA COMPLIANCE:
+  - Never extract patient names, medical diagnoses, or health conditions
+  - Never extract medical record numbers or PHI (Protected Health Information)
+  - Focus only on business/operational entities
+  
+  Respond ONLY with valid JSON (no markdown, no extra text):
+  {
+    "entities": [
+      {
+        "text": "entity text",
+        "type": "PERSON|ORGANIZATION|PRODUCT|LOCATION|OPPORTUNITY",
+        "confidence": 0.0-1.0,
+        "context": "brief context where found"
+      }
+    ]
+  }
+  
+  Only include entities with confidence >= 0.7. Deduplicate results.
+
+instruction_template: |
+  Extract entities from this email:
+  
+  From: {from_email}
+  Subject: {subject}
+  Body: {body_preview}
+  
+  Identify all business-relevant entities. Ensure HIPAA compliance.
+
+few_shot_examples:
+  - input:
+      from_email: "sarah.johnson@massgeneral.org"
+      subject: "EMR Integration Interest - Mass General Health System"
+      body_preview: "Hi Betafits team, I'm Sarah Johnson, Director of IT at Mass General. We manage 15 hospitals across Massachusetts and are interested in integrating your platform with our Epic EHR system. We serve 2.5M patients annually..."
+    output:
+      entities:
+        - text: "Sarah Johnson"
+          type: "PERSON"
+          confidence: 0.98
+          context: "Director of IT, identified as decision maker"
+        - text: "Mass General"
+          type: "ORGANIZATION"
+          confidence: 0.99
+          context: "Healthcare system mentioned as primary organization"
+        - text: "Massachusetts"
+          type: "LOCATION"
+          confidence: 0.95
+          context: "Geographic scope of operations"
+        - text: "Epic EHR integration"
+          type: "OPPORTUNITY"
+          confidence: 0.92
+          context: "Specific integration opportunity"
+  
+  - input:
+      from_email: "contact@innovahealth.com"
+      subject: "Partnership Proposal - Midwest Healthcare Network"
+      body_preview: "We operate 45 clinics across Illinois, Indiana, and Ohio. Our platform ProcessFlow is used by 300+ healthcare providers. Interested in Betafits integration."
+    output:
+      entities:
+        - text: "Innova Health"
+          type: "ORGANIZATION"
+          confidence: 0.98
+          context: "Company operating healthcare clinics"
+        - text: "Illinois"
+          type: "LOCATION"
+          confidence: 0.94
+          context: "Primary operating region"
+        - text: "Indiana"
+          type: "LOCATION"
+          confidence: 0.94
+          context: "Operating region"
+        - text: "Ohio"
+          type: "LOCATION"
+          confidence: 0.94
+          context: "Operating region"
+        - text: "ProcessFlow"
+          type: "PRODUCT"
+          confidence: 0.91
+          context: "Their platform for healthcare providers"
+        - text: "Betafits integration"
+          type: "OPPORTUNITY"
+          confidence: 0.89
+          context: "Partnership opportunity"
+
+schema:
+  type: object
+  properties:
+    entities:
+      type: array
+      items:
+        type: object
+        properties:
+          text:
+            type: string
+          type:
+            type: string
+            enum: ["PERSON", "ORGANIZATION", "PRODUCT", "LOCATION", "OPPORTUNITY"]
+          confidence:
+            type: number
+            minimum: 0.7
+            maximum: 1.0
+          context:
+            type: string
+        required:
+          - text
+          - type
+          - confidence
+          - context
+  required:
+    - entities

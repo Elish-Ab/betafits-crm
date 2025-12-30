@@ -1,0 +1,3 @@
+.venv/
+*.mbox
+__pycache__/

@@ -1,0 +1,9 @@
+README.md
+pyproject.toml
+betafits_CRM.egg-info/PKG-INFO
+betafits_CRM.egg-info/SOURCES.txt
+betafits_CRM.egg-info/dependency_links.txt
+betafits_CRM.egg-info/entry_points.txt
+betafits_CRM.egg-info/requires.txt
+betafits_CRM.egg-info/top_level.txt
+lib/config.py
