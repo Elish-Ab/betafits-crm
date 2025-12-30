@@ -1,0 +1,798 @@
+
+import React, { useState } from 'react';
+import { MOCK_UNIVERSE, MOCK_PARTNER_UNIVERSE } from '../services/mockData';
+import { Filter, Plus, Search, MapPin, Users, Calendar, Crosshair, Globe, ArrowRight, Trash2, MoreHorizontal, Building2, Briefcase, X, FileText, Link as LinkIcon, Handshake, Zap, Linkedin } from 'lucide-react';
+import { PartnerType, Company, Partner, PartnerStage } from '../types';
+
+const ProspectUniverse: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'universe' | 'targeting'>('universe');
+  const [universeView, setUniverseView] = useState<'companies' | 'partners'>('companies');
+  
+  // Detail View States
+  const [selectedCompanyDetail, setSelectedCompanyDetail] = useState<Company | null>(null);
+  const [selectedPartnerDetail, setSelectedPartnerDetail] = useState<Partner | null>(null);
+
+  // Data States
+  const [universeData, setUniverseData] = useState(MOCK_UNIVERSE);
+  const [partnerUniverseData, setPartnerUniverseData] = useState(MOCK_PARTNER_UNIVERSE);
+  
+  // Filter States
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedPeo, setSelectedPeo] = useState<string>('All');
+  const [selectedPartnerCategory, setSelectedPartnerCategory] = useState<string>('All');
+  
+  // Selection States
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState<Set<string>>(new Set());
+  const [selectedPartnerIds, setSelectedPartnerIds] = useState<Set<string>>(new Set());
+
+  const peoOptions = ['All', ...Array.from(new Set(universeData.map(u => u.peo)))];
+  const partnerCategories = ['All', ...Object.values(PartnerType)];
+
+  // --- Filtering Logic ---
+  const filteredCompanies = universeData.filter(record => {
+    const matchesSearch = record.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          record.industry.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesPeo = selectedPeo === 'All' || record.peo === selectedPeo;
+    return matchesSearch && matchesPeo;
+  });
+
+  const filteredPartners = partnerUniverseData.filter(record => {
+      const matchesSearch = record.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            record.location.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = selectedPartnerCategory === 'All' || record.category === selectedPartnerCategory;
+      return matchesSearch && matchesCategory;
+  });
+
+  // --- Targeting Logic ---
+  const targetingCompanies = universeData.filter(record => record.isTarget);
+  const targetingPartners = partnerUniverseData.filter(record => record.isTarget);
+
+  // --- Selection Handlers ---
+  const toggleCompanySelection = (id: string) => {
+    const newSelection = new Set(selectedCompanyIds);
+    if (newSelection.has(id)) newSelection.delete(id);
+    else newSelection.add(id);
+    setSelectedCompanyIds(newSelection);
+  };
+
+  const togglePartnerSelection = (id: string) => {
+    const newSelection = new Set(selectedPartnerIds);
+    if (newSelection.has(id)) newSelection.delete(id);
+    else newSelection.add(id);
+    setSelectedPartnerIds(newSelection);
+  };
+
+  // --- Action Handlers ---
+  const handleAddCompaniesToTargets = () => {
+    const updatedData = universeData.map(record => {
+        if (selectedCompanyIds.has(record.id)) return { ...record, isTarget: true };
+        return record;
+    });
+    setUniverseData(updatedData);
+    setSelectedCompanyIds(new Set());
+    alert(`Added ${selectedCompanyIds.size} companies to Targeting list.`);
+    setActiveTab('targeting');
+  };
+
+  const handleAddPartnersToTargets = () => {
+    const updatedData = partnerUniverseData.map(record => {
+        if (selectedPartnerIds.has(record.id)) return { ...record, isTarget: true };
+        return record;
+    });
+    setPartnerUniverseData(updatedData);
+    setSelectedPartnerIds(new Set());
+    alert(`Added ${selectedPartnerIds.size} partners to Targeting list.`);
+    setActiveTab('targeting');
+  };
+
+  const handlePromoteCompany = (id: string) => {
+    const updatedData = universeData.map(r => r.id === id ? { ...r, inPipeline: true, isTarget: false } : r);
+    setUniverseData(updatedData);
+    alert(`Promoted company to Sales Pipeline.`);
+  };
+
+  const handlePromotePartner = (id: string) => {
+    const updatedData = partnerUniverseData.map(r => r.id === id ? { ...r, inPipeline: true, isTarget: false } : r);
+    setPartnerUniverseData(updatedData);
+    alert(`Promoted partner to Partner Pipeline.`);
+  };
+
+  const handleRemoveCompanyTarget = (id: string) => {
+     const updatedData = universeData.map(r => r.id === id ? { ...r, isTarget: false } : r);
+     setUniverseData(updatedData);
+  };
+
+  const handleRemovePartnerTarget = (id: string) => {
+    const updatedData = partnerUniverseData.map(r => r.id === id ? { ...r, isTarget: false } : r);
+    setPartnerUniverseData(updatedData);
+ };
+
+  // --- Detail View Mappers ---
+  const openCompanyDetail = (record: any) => {
+      const company: Company = {
+          id: record.id,
+          name: record.name,
+          industry: record.industry,
+          employees: record.employees,
+          city: record.location.split(',')[0].trim(),
+          state: record.location.split(',')[1]?.trim() || '',
+          peo: record.peo,
+          status: 'Inactive',
+          icpScore: record.icpScore,
+          ein: record.ein,
+          planAssets: record.planAssets,
+          renewalMonth: record.renewalMonth,
+          participantCount: Math.round(record.employees * 0.8) // Estimation for mock
+      };
+      setSelectedCompanyDetail(company);
+  };
+
+  const openPartnerDetail = (record: any) => {
+      const partner: Partner = {
+          id: record.id,
+          name: record.name,
+          type: record.category,
+          location: record.location,
+          investmentFocus: record.focus,
+          icpScore: record.icpScore, // Add icpScore to Partner if needed in types, else ignore
+          referralsMade: 0,
+          activePartnership: false,
+          stage: PartnerStage.Identified,
+          description: `A leading ${record.category} firm based in ${record.location}.`,
+          // Mock Data filler
+          foundedYear: 2015,
+          website: `${record.name.toLowerCase().replace(/\s/g, '')}.com`
+      } as any;
+      setSelectedPartnerDetail(partner);
+  };
+
+  return (
+    <div className="space-y-6 h-[calc(100vh-8rem)] flex flex-col relative">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+            <h2 className="text-2xl font-bold text-gray-800">Universe</h2>
+            <p className="text-sm text-gray-500 mt-1">Search filings and market data to identify potential prospects and partners.</p>
+        </div>
+        
+        <div className="flex items-center bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
+            <button
+                onClick={() => setActiveTab('universe')}
+                className={`px-4 py-2 text-sm font-medium rounded-md flex items-center transition-all ${
+                    activeTab === 'universe' 
+                    ? 'bg-[#84bd5e] text-white shadow-sm' 
+                    : 'text-gray-500 hover:bg-gray-50'
+                }`}
+            >
+                <Globe className="w-4 h-4 mr-2" />
+                Universe
+            </button>
+            <button
+                onClick={() => setActiveTab('targeting')}
+                className={`px-4 py-2 text-sm font-medium rounded-md flex items-center transition-all ${
+                    activeTab === 'targeting' 
+                    ? 'bg-[#84bd5e] text-white shadow-sm' 
+                    : 'text-gray-500 hover:bg-gray-50'
+                }`}
+            >
+                <Crosshair className="w-4 h-4 mr-2" />
+                Targeting ({targetingCompanies.length + targetingPartners.length})
+            </button>
+        </div>
+      </div>
+
+      {/* VIEW TOGGLE FOR UNIVERSE TAB */}
+      {activeTab === 'universe' && (
+         <div className="flex justify-center">
+             <div className="flex items-center bg-gray-100 p-1 rounded-lg border border-gray-200">
+                <button
+                    onClick={() => setUniverseView('companies')}
+                    className={`px-4 py-1.5 text-sm font-medium rounded-md flex items-center transition-all ${
+                        universeView === 'companies' 
+                        ? 'bg-white text-[#84bd5e] shadow-sm border border-gray-200' 
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                    <Building2 className="w-4 h-4 mr-2" />
+                    Companies
+                </button>
+                <button
+                    onClick={() => setUniverseView('partners')}
+                    className={`px-4 py-1.5 text-sm font-medium rounded-md flex items-center transition-all ${
+                        universeView === 'partners' 
+                        ? 'bg-white text-[#84bd5e] shadow-sm border border-gray-200' 
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                    <Briefcase className="w-4 h-4 mr-2" />
+                    Partners
+                </button>
+             </div>
+         </div>
+      )}
+
+      {activeTab === 'universe' && (
+        <div className="flex flex-col lg:flex-row gap-6 flex-1 overflow-hidden">
+            {/* Filters Sidebar */}
+            <div className="w-full lg:w-64 bg-white p-5 rounded-xl shadow-sm border border-gray-100 h-fit lg:h-auto overflow-y-auto">
+                <div className="flex items-center text-gray-800 font-semibold mb-6">
+                    <Filter className="w-4 h-4 mr-2 text-[#84bd5e]" /> Filters
+                </div>
+                
+                {universeView === 'companies' ? (
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-2 tracking-wider">PEO Provider</label>
+                            <select 
+                                className="w-full p-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#84bd5e] focus:border-[#84bd5e]"
+                                value={selectedPeo}
+                                onChange={(e) => setSelectedPeo(e.target.value)}
+                            >
+                                {peoOptions.map(peo => (
+                                    <option key={peo} value={peo}>{peo}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-2 tracking-wider">Employee Count</label>
+                            <div className="flex items-center space-x-2">
+                                <input type="number" placeholder="Min" className="w-1/2 p-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:ring-[#84bd5e] focus:border-[#84bd5e] focus:outline-none" />
+                                <span className="text-gray-300">-</span>
+                                <input type="number" placeholder="Max" className="w-1/2 p-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:ring-[#84bd5e] focus:border-[#84bd5e] focus:outline-none" />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-2 tracking-wider">Location</label>
+                            <input type="text" placeholder="City or State" className="w-full p-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:ring-[#84bd5e] focus:border-[#84bd5e] focus:outline-none" />
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-2 tracking-wider">Partner Category</label>
+                            <select 
+                                className="w-full p-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#84bd5e] focus:border-[#84bd5e]"
+                                value={selectedPartnerCategory}
+                                onChange={(e) => setSelectedPartnerCategory(e.target.value)}
+                            >
+                                {partnerCategories.map(cat => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-2 tracking-wider">Location</label>
+                            <input type="text" placeholder="City or State" className="w-full p-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:ring-[#84bd5e] focus:border-[#84bd5e] focus:outline-none" />
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Main Table */}
+            <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col overflow-hidden">
+                <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-white">
+                    <div className="relative flex-1 max-w-md">
+                        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                        <input 
+                            type="text" 
+                            placeholder={universeView === 'companies' ? "Search by company name, EIN, or industry..." : "Search by partner name or focus..."}
+                            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#84bd5e] focus:border-[#84bd5e] text-sm text-gray-700"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    
+                    {universeView === 'companies' && selectedCompanyIds.size > 0 && (
+                        <button 
+                            onClick={handleAddCompaniesToTargets}
+                            className="ml-4 bg-[#84bd5e] hover:bg-[#76aa52] text-white px-4 py-2 rounded-lg shadow-sm flex items-center transition-colors text-sm font-medium"
+                        >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add {selectedCompanyIds.size} to Targets
+                        </button>
+                    )}
+                    {universeView === 'partners' && selectedPartnerIds.size > 0 && (
+                        <button 
+                            onClick={handleAddPartnersToTargets}
+                            className="ml-4 bg-[#84bd5e] hover:bg-[#76aa52] text-white px-4 py-2 rounded-lg shadow-sm flex items-center transition-colors text-sm font-medium"
+                        >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add {selectedPartnerIds.size} to Targets
+                        </button>
+                    )}
+                </div>
+                
+                <div className="flex-1 overflow-auto">
+                    {universeView === 'companies' ? (
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50 sticky top-0 z-10">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-10">
+                                        <input type="checkbox" className="rounded border-gray-300 text-[#84bd5e] focus:ring-[#84bd5e]" />
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Company</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">ICP Score</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">PEO</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Employees</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Assets</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Renewal</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-100">
+                                {filteredCompanies.map((row) => (
+                                    <tr key={row.id} className="hover:bg-green-50 transition-colors">
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={selectedCompanyIds.has(row.id)}
+                                                onChange={() => toggleCompanySelection(row.id)}
+                                                className="rounded border-gray-300 text-[#84bd5e] focus:ring-[#84bd5e]" 
+                                            />
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap cursor-pointer" onClick={() => openCompanyDetail(row)}>
+                                            <div>
+                                                <div className="text-sm font-semibold text-gray-900 hover:text-[#84bd5e]">{row.name}</div>
+                                                <div className="text-xs text-gray-500 flex items-center mt-0.5">
+                                                    <MapPin className="w-3 h-3 mr-1" /> {row.location}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
+                                                row.icpScore >= 80 ? 'bg-green-50 text-green-700 border-green-100' : 
+                                                row.icpScore >= 50 ? 'bg-yellow-50 text-yellow-700 border-yellow-100' : 
+                                                'bg-red-50 text-red-700 border-red-100'
+                                            }`}>
+                                                {row.icpScore}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                            <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-medium">
+                                                {row.peo}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                            <div className="flex items-center">
+                                                <Users className="w-3 h-3 mr-1.5 text-gray-400" />
+                                                {row.employees}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${(row.planAssets / 1000000).toFixed(1)}M</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                            <div className="flex items-center">
+                                                <Calendar className="w-3 h-3 mr-1.5 text-gray-400" />
+                                                {row.renewalMonth}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    ) : (
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50 sticky top-0 z-10">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-10">
+                                        <input type="checkbox" className="rounded border-gray-300 text-[#84bd5e] focus:ring-[#84bd5e]" />
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Partner Name</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">ICP Score</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Category</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Focus</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Location</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-100">
+                                {filteredPartners.map((row) => (
+                                    <tr key={row.id} className="hover:bg-green-50 transition-colors">
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={selectedPartnerIds.has(row.id)}
+                                                onChange={() => togglePartnerSelection(row.id)}
+                                                className="rounded border-gray-300 text-[#84bd5e] focus:ring-[#84bd5e]" 
+                                            />
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap cursor-pointer" onClick={() => openPartnerDetail(row)}>
+                                            <div className="text-sm font-semibold text-gray-900 hover:text-[#84bd5e]">{row.name}</div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
+                                                row.icpScore >= 80 ? 'bg-green-50 text-green-700 border-green-100' : 
+                                                row.icpScore >= 50 ? 'bg-yellow-50 text-yellow-700 border-yellow-100' : 
+                                                'bg-red-50 text-red-700 border-red-100'
+                                            }`}>
+                                                {row.icpScore}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                            <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-medium border border-blue-100">
+                                                {row.category}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                            {row.focus}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                            <div className="flex items-center">
+                                                <MapPin className="w-3 h-3 mr-1.5 text-gray-400" />
+                                                {row.location}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            </div>
+        </div>
+      )}
+
+      {activeTab === 'targeting' && (
+        <div className="flex-1 overflow-y-auto pb-6">
+            {targetingCompanies.length === 0 && targetingPartners.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-96 bg-white rounded-xl border border-gray-200 border-dashed">
+                    <div className="bg-gray-50 p-4 rounded-full mb-4">
+                        <Crosshair className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900">No targets selected</h3>
+                    <p className="text-gray-500 mt-1 mb-6">Go to the Universe tab to add companies or partners to your targeting list.</p>
+                    <button 
+                        onClick={() => setActiveTab('universe')}
+                        className="px-4 py-2 bg-[#84bd5e] text-white rounded-lg hover:bg-[#76aa52] transition-colors"
+                    >
+                        Find Prospects
+                    </button>
+                </div>
+            ) : (
+                <div className="space-y-8">
+                    {/* Companies Section */}
+                    {targetingCompanies.length > 0 && (
+                        <div>
+                            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                                <Building2 className="w-5 h-5 mr-2 text-gray-500" /> Company Targets
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {targetingCompanies.map((target) => (
+                                <div key={target.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all hover:border-green-200 group cursor-pointer" onClick={() => openCompanyDetail(target)}>
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div>
+                                            <h3 className="text-lg font-bold text-gray-800 group-hover:text-[#84bd5e] transition-colors">{target.name}</h3>
+                                            <p className="text-sm text-gray-500 flex items-center mt-1">
+                                                <MapPin className="w-3 h-3 mr-1" />
+                                                {target.location}
+                                            </p>
+                                        </div>
+                                        <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold border ${
+                                            target.icpScore >= 80 ? 'bg-green-50 border-green-200 text-green-700' : 
+                                            target.icpScore >= 50 ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : 
+                                            'bg-red-50 border-red-200 text-red-700'
+                                        }`}>
+                                            {target.icpScore}
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3 mb-6 bg-gray-50 p-4 rounded-lg border border-gray-100">
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-500">Industry</span>
+                                            <span className="font-medium text-gray-800">{target.industry}</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-500">PEO</span>
+                                            <span className="font-medium text-gray-800">{target.peo}</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-500">Renewal</span>
+                                            <span className="font-medium text-gray-800">{target.renewalMonth}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex space-x-3" onClick={e => e.stopPropagation()}>
+                                        <button 
+                                            onClick={() => handlePromoteCompany(target.id)}
+                                            className="flex-1 bg-[#84bd5e] hover:bg-[#76aa52] text-white text-sm font-medium py-2.5 rounded-lg flex items-center justify-center transition-colors shadow-sm"
+                                        >
+                                            Promote <ArrowRight className="w-4 h-4 ml-1.5" />
+                                        </button>
+                                        <button 
+                                            onClick={() => handleRemoveCompanyTarget(target.id)}
+                                            className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
+                                            title="Remove from Target List"
+                                        >
+                                            <Trash2 className="w-5 h-5" />
+                                        </button>
+                                        <button className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors border border-transparent hover:border-gray-200">
+                                            <MoreHorizontal className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Partners Section */}
+                    {targetingPartners.length > 0 && (
+                        <div>
+                            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                                <Briefcase className="w-5 h-5 mr-2 text-gray-500" /> Partner Targets
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {targetingPartners.map((target) => (
+                                <div key={target.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all hover:border-blue-200 group cursor-pointer" onClick={() => openPartnerDetail(target)}>
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div>
+                                            <h3 className="text-lg font-bold text-gray-800 group-hover:text-blue-600 transition-colors">{target.name}</h3>
+                                            <p className="text-sm text-gray-500 flex items-center mt-1">
+                                                <MapPin className="w-3 h-3 mr-1" />
+                                                {target.location}
+                                            </p>
+                                        </div>
+                                        <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold border ${
+                                            target.icpScore >= 80 ? 'bg-green-50 border-green-200 text-green-700' : 
+                                            target.icpScore >= 50 ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : 
+                                            'bg-red-50 border-red-200 text-red-700'
+                                        }`}>
+                                            {target.icpScore}
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3 mb-6 bg-gray-50 p-4 rounded-lg border border-gray-100">
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-500">Category</span>
+                                            <span className="font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">{target.category}</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-500">Focus</span>
+                                            <span className="font-medium text-gray-800">{target.focus}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex space-x-3" onClick={e => e.stopPropagation()}>
+                                        <button 
+                                            onClick={() => handlePromotePartner(target.id)}
+                                            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2.5 rounded-lg flex items-center justify-center transition-colors shadow-sm"
+                                        >
+                                            Promote <ArrowRight className="w-4 h-4 ml-1.5" />
+                                        </button>
+                                        <button 
+                                            onClick={() => handleRemovePartnerTarget(target.id)}
+                                            className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
+                                            title="Remove from Target List"
+                                        >
+                                            <Trash2 className="w-5 h-5" />
+                                        </button>
+                                        <button className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors border border-transparent hover:border-gray-200">
+                                            <MoreHorizontal className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+      )}
+
+       {/* Company Detail Slide-over */}
+       {selectedCompanyDetail && (
+        <div className="absolute inset-y-0 right-0 w-1/3 bg-white shadow-2xl border-l border-gray-200 z-50 flex flex-col transform transition-transform duration-300 ease-in-out">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                <div className="flex items-center space-x-3">
+                    <div className="h-12 w-12 bg-green-50 rounded-full flex items-center justify-center text-[#84bd5e]">
+                        <Building2 className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-bold text-gray-900">{selectedCompanyDetail.name}</h3>
+                        <div className="flex items-center space-x-3 text-sm text-gray-500">
+                             {selectedCompanyDetail.website && (
+                                 <a href={`https://${selectedCompanyDetail.website}`} target="_blank" rel="noreferrer" className="flex items-center hover:text-[#84bd5e]">
+                                     <LinkIcon className="w-3 h-3 mr-1" /> {selectedCompanyDetail.website}
+                                 </a>
+                             )}
+                        </div>
+                    </div>
+                </div>
+                <button 
+                    onClick={() => setSelectedCompanyDetail(null)}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-gray-600"
+                >
+                    <X className="w-5 h-5" />
+                </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+                {/* Status Card */}
+                <div className="flex justify-between items-center bg-gray-50 p-4 rounded-xl border border-gray-100">
+                     <div>
+                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wide">Status</p>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-gray-200 text-gray-800 mt-1">
+                            Universe Record
+                        </span>
+                     </div>
+                     <div className="text-right">
+                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wide">ICP Score</p>
+                        <span className="text-2xl font-bold text-gray-800">{selectedCompanyDetail.icpScore}</span>
+                     </div>
+                </div>
+
+                {/* 5500 Filing Insights */}
+                <div>
+                    <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                        <FileText className="w-5 h-5 mr-2 text-[#84bd5e]" /> Form 5500 Insights
+                    </h4>
+                    <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+                        <div className="grid grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <p className="text-xs text-gray-400 uppercase font-bold">Total Plan Assets</p>
+                                <p className="text-xl font-bold text-gray-900 mt-1">
+                                    {selectedCompanyDetail.planAssets ? `$${(selectedCompanyDetail.planAssets / 1000000).toFixed(1)}M` : 'N/A'}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-400 uppercase font-bold">Participants</p>
+                                <p className="text-xl font-bold text-gray-900 mt-1">
+                                    {selectedCompanyDetail.participantCount?.toLocaleString() || 'N/A'}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-400 uppercase font-bold">Renewal Date</p>
+                                <p className="text-lg font-medium text-gray-900 mt-1">
+                                    {selectedCompanyDetail.renewalMonth || 'Unknown'} 1st
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-400 uppercase font-bold">EIN</p>
+                                <p className="text-lg font-medium text-gray-900 mt-1">
+                                    {selectedCompanyDetail.ein || 'N/A'}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div className="border-t border-gray-100 pt-4">
+                            <p className="text-xs text-gray-400 uppercase font-bold mb-2">PEO History</p>
+                            <div className="flex items-center space-x-2">
+                                <div className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded border border-indigo-100 text-sm font-medium">
+                                    {selectedCompanyDetail.peo || 'No PEO Detected'}
+                                </div>
+                                {selectedCompanyDetail.peo && <span className="text-gray-400 text-xs">(Current)</span>}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Organization Details */}
+                <div>
+                    <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                        <Briefcase className="w-5 h-5 mr-2 text-[#84bd5e]" /> Firmographics
+                    </h4>
+                    <div className="space-y-4">
+                         <div className="flex justify-between border-b border-gray-100 pb-2">
+                             <span className="text-gray-500">Industry</span>
+                             <span className="text-gray-900 font-medium">{selectedCompanyDetail.industry}</span>
+                         </div>
+                         <div className="flex justify-between border-b border-gray-100 pb-2">
+                             <span className="text-gray-500">Headquarters</span>
+                             <span className="text-gray-900 font-medium">{selectedCompanyDetail.city}, {selectedCompanyDetail.state}</span>
+                         </div>
+                         <div className="flex justify-between border-b border-gray-100 pb-2">
+                             <span className="text-gray-500">Total Employees</span>
+                             <span className="text-gray-900 font-medium">{selectedCompanyDetail.employees?.toLocaleString()}</span>
+                         </div>
+                    </div>
+                </div>
+                
+                <div className="pt-4">
+                   <button 
+                        onClick={() => handleAddCompaniesToTargets()} // This needs to handle single item. For mock I'll reuse the existing logic but pre-select
+                        className="w-full bg-[#84bd5e] hover:bg-[#76aa52] text-white font-bold py-3 rounded-lg transition-colors shadow-sm"
+                    >
+                        Add to Targeting
+                    </button>
+                </div>
+
+            </div>
+        </div>
+      )}
+
+      {/* Partner Detail Slide-over */}
+      {selectedPartnerDetail && (
+        <div className="absolute inset-y-0 right-0 w-1/3 bg-white shadow-2xl border-l border-gray-200 z-50 flex flex-col transform transition-transform duration-300 ease-in-out">
+             <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                <div className="flex items-center space-x-3">
+                    <div className="h-12 w-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-600">
+                        <Handshake className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-bold text-gray-900">{selectedPartnerDetail.name}</h3>
+                        <span className="text-sm text-gray-500 bg-gray-100 px-2 py-0.5 rounded">{selectedPartnerDetail.type}</span>
+                    </div>
+                </div>
+                <button 
+                    onClick={() => setSelectedPartnerDetail(null)}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-gray-600"
+                >
+                    <X className="w-5 h-5" />
+                </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+                {/* Market Intel Section */}
+                <div>
+                    <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                        <Briefcase className="w-5 h-5 mr-2 text-[#84bd5e]" /> Firm Intelligence
+                    </h4>
+                    <p className="text-sm text-gray-600 leading-relaxed mb-6">
+                        {selectedPartnerDetail.description || 'No description available.'}
+                    </p>
+                    
+                    <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm grid grid-cols-2 gap-6">
+                        <div>
+                            <p className="text-xs text-gray-400 uppercase font-bold">Founded</p>
+                            <p className="text-lg font-medium text-gray-900 mt-1">{selectedPartnerDetail.foundedYear || 'N/A'}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-400 uppercase font-bold">Location</p>
+                            <div className="flex items-center mt-1">
+                                <MapPin className="w-4 h-4 mr-1 text-gray-400" />
+                                <span className="text-lg font-medium text-gray-900">{selectedPartnerDetail.location || 'N/A'}</span>
+                            </div>
+                        </div>
+                        <div className="col-span-2 flex space-x-4">
+                            {selectedPartnerDetail.website && (
+                                <a href={`https://${selectedPartnerDetail.website}`} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline flex items-center">
+                                    <Globe className="w-4 h-4 mr-1" /> Website
+                                </a>
+                            )}
+                            {selectedPartnerDetail.linkedin && (
+                                <a href={`https://${selectedPartnerDetail.linkedin}`} target="_blank" rel="noreferrer" className="text-sm text-blue-700 hover:underline flex items-center">
+                                    <Linkedin className="w-4 h-4 mr-1" /> LinkedIn
+                                </a>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Investment/Focus Profile */}
+                {(selectedPartnerDetail.type === PartnerType.VC_PE || selectedPartnerDetail.investmentFocus) && (
+                    <div>
+                        <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                            <Zap className="w-5 h-5 mr-2 text-[#84bd5e]" /> {selectedPartnerDetail.type === PartnerType.VC_PE ? 'Investment Profile' : 'Business Focus'}
+                        </h4>
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                            <p className="text-xs text-gray-400 uppercase font-bold mb-2">Focus Areas</p>
+                            <div className="flex flex-wrap gap-2">
+                                {selectedPartnerDetail.investmentFocus ? (
+                                    selectedPartnerDetail.investmentFocus.split(',').map((tag, idx) => (
+                                        <span key={idx} className="bg-white text-gray-700 px-3 py-1 rounded-full text-sm font-medium border border-gray-200 shadow-sm">
+                                            {tag.trim()}
+                                        </span>
+                                    ))
+                                ) : (
+                                    <span className="text-sm text-gray-500 italic">No specific focus data available.</span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+                 
+                <div className="pt-4">
+                   <button 
+                        onClick={() => handleAddPartnersToTargets()} // Reusing mock logic
+                        className="w-full bg-[#84bd5e] hover:bg-[#76aa52] text-white font-bold py-3 rounded-lg transition-colors shadow-sm"
+                    >
+                        Add to Targeting
+                    </button>
+                </div>
+
+            </div>
+        </div>
+      )}
+
+    </div>
+  );
+};
+
+export default ProspectUniverse;
