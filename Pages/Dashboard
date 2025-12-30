@@ -1,0 +1,83 @@
+
+import React from 'react';
+import { MOCK_PROSPECTS, MOCK_PARTNERS } from '../services/mockData';
+import { PipelineChart, IndustryDistributionChart } from '../components/DashboardCharts';
+import { Users, DollarSign, CheckCircle, Briefcase } from 'lucide-react';
+
+const DashboardCard = ({ title, value, icon: Icon, colorClass }: { title: string; value: string; icon: any; colorClass: string }) => (
+  <div className="bg-white rounded-xl shadow-sm p-6 flex items-center border border-gray-100 hover:shadow-md transition-shadow">
+    <div className={`p-3 rounded-full mr-4 ${colorClass}`}>
+      <Icon className="w-6 h-6" />
+    </div>
+    <div>
+      <p className="text-sm text-gray-500 font-medium">{title}</p>
+      <h3 className="text-2xl font-bold text-gray-800 mt-0.5">{value}</h3>
+    </div>
+  </div>
+);
+
+const Dashboard: React.FC = () => {
+  const totalProspects = MOCK_PROSPECTS.length;
+  
+  // Calculate weighted pipeline value (Value * Probability)
+  const pipelineValue = MOCK_PROSPECTS.reduce((sum, p) => sum + (p.value * (p.probability / 100)), 0);
+  
+  const activePartners = MOCK_PARTNERS.filter(p => p.activePartnership).length;
+  
+  // Quick mock calc for win rate
+  const won = MOCK_PROSPECTS.filter(p => p.stage === 'Customer').length;
+  const lost = MOCK_PROSPECTS.filter(p => p.stage === 'Closed Lost').length;
+  const closed = won + lost;
+  const winRate = closed > 0 ? Math.round((won / closed) * 100) : 0;
+
+  return (
+    <div className="space-y-8">
+      <div className="flex justify-between items-end">
+        <div>
+            <h2 className="text-2xl font-bold text-gray-800">Manager Dashboard</h2>
+            <p className="text-gray-500 mt-1">Overview of pipeline health and partner activity.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <DashboardCard 
+          title="Total Prospects" 
+          value={totalProspects.toString()} 
+          icon={Users} 
+          colorClass="bg-blue-50 text-blue-600" 
+        />
+        <DashboardCard 
+          title="Pipeline Value (Weighted)" 
+          value={`$${Math.round(pipelineValue).toLocaleString()}`} 
+          icon={DollarSign} 
+          colorClass="bg-green-50 text-[#84bd5e]" 
+        />
+        <DashboardCard 
+          title="Active Partners" 
+          value={activePartners.toString()} 
+          icon={Briefcase} 
+          colorClass="bg-purple-50 text-purple-600" 
+        />
+        <DashboardCard 
+          title="Win Rate" 
+          value={`${winRate}%`} 
+          icon={CheckCircle} 
+          colorClass="bg-orange-50 text-orange-600" 
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <h3 className="text-lg font-bold text-gray-800 mb-6">Weighted Pipeline Value by Stage</h3>
+          <PipelineChart />
+        </div>
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <h3 className="text-lg font-bold text-gray-800 mb-6">Prospects by Industry</h3>
+          <IndustryDistributionChart />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;

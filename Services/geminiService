@@ -1,0 +1,44 @@
+import { GoogleGenAI } from "@google/genai";
+
+// Initialize the Gemini client
+// Using a dummy key for build safety if env is missing, but in prod use process.env.API_KEY
+const apiKey = process.env.API_KEY || 'DUMMY_KEY_FOR_BUILD'; 
+const ai = new GoogleGenAI({ apiKey });
+
+export const generateOutreachEmail = async (
+  contactName: string,
+  companyName: string,
+  context: string,
+  senderName: string
+): Promise<string> => {
+  if (!apiKey || apiKey === 'DUMMY_KEY_FOR_BUILD') {
+    console.warn("Gemini API Key is missing. Returning mock response.");
+    return `Subject: Benefits Optimization for ${companyName}\n\nHi ${contactName},\n\nI noticed ${companyName} is growing quickly. I'd love to chat about optimizing your PEO strategy.\n\nBest,\n${senderName}`;
+  }
+
+  try {
+    const model = "gemini-2.5-flash";
+    const prompt = `
+      You are an expert B2B sales copywriter for Betafits, a benefits consulting firm.
+      Write a concise, professional, and personalized outreach email.
+      
+      Recipient: ${contactName}
+      Company: ${companyName}
+      Context/Pain Point: ${context}
+      Sender: ${senderName}
+      
+      The tone should be helpful, not aggressive. Focus on PEO optimization, cost savings, and scalable HR tech.
+      Return ONLY the email subject and body.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: model,
+      contents: prompt,
+    });
+
+    return response.text || "Error generating email content.";
+  } catch (error) {
+    console.error("Gemini API Error:", error);
+    return "Error connecting to AI service. Please check your API key.";
+  }
+};
