@@ -16,6 +16,8 @@ def create_lg_run(
     environment: Optional[str] = None,
     input_summary: Optional[str] = None,
     input_payload: Optional[Dict[str, Any]] = None,
+    workflow_name: Optional[str] = None,
+    user_trigger: Optional[str] = None,
 ) -> str:
     """
     Create a new LangGraph run entry in Airtable.
@@ -26,6 +28,8 @@ def create_lg_run(
         environment: Deployment environment (must match Airtable select options)
         input_summary: Summary description of the input
         input_payload: Input data as dictionary (will be JSON stringified)
+        workflow_name: Name of the workflow (e.g., 'email_processing', 'form5500')
+        user_trigger: Who/what triggered the run (e.g., user email, cron job)
         
     Returns:
         record_id: The Airtable record ID (use this to link snapshots and update)
@@ -42,6 +46,12 @@ def create_lg_run(
     
     if input_payload:
         fields["Input Payload"] = json.dumps(input_payload, indent=2)
+    
+    if workflow_name:
+        fields["Workflow Name"] = workflow_name
+    
+    if user_trigger:
+        fields["User/Trigger"] = user_trigger
     
     record = client.create_run(fields)
     return record["id"]
