@@ -1,3 +1,229 @@
-.venv/
-*.mbox
+# Python
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# PyCharm
+.idea/
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# Poetry
+poetry.lock
+
+# pytest
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# Secrets and credentials
+secrets/
+credentials/
+*.key
+*.pem
+*.crt
+*.cer
+*.p12
+*.pfx
+service-account*.json
+client_secret*.json
+
+# Mailbox files
+*.mbox
+
+# Node.js (Frontend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+package-lock.json
+yarn.lock
+
+# Frontend build
+frontend/dist/
+frontend/build/
+frontend/.next/
+frontend/out/
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.#*
+
+# Data files (exclude large datasets)
+*.csv
+*.xlsx
+*.xls
+*.parquet
+data/
+datasets/
+raw_data/
+*.zip
+*.tar.gz
+*.rar
+
+# Model files (if using ML models)
+*.pkl
+*.pickle
+*.h5
+*.hdf5
+*.pt
+*.pth
+*.onnx
+
+# Documentation builds
+docs/_build/
+docs/.doctrees/
+site/
+
+# Backup files
+*.bak
+*.backup
+*-backup.*
+
+# Local configuration
+local_settings.py
+config.local.*
+settings.local.*
+
+# Pre-commit hooks
+.pre-commit-config.yaml.bak
+
+# Supabase local
+.supabase/
+
+# LangGraph checkpoints
+checkpoints/
+*.sqlite-wal
+*.sqlite-shm
+
+# Form 5500 legacy data (large files)
+services/form5500_legacy/**/*.csv
+services/form5500_legacy/**/*.xlsx
+services/form5500_legacy/**/*.zip
+services/form5500_legacy/**/data/
+
+# API keys and tokens (extra safety)
+*_api_key.txt
+*_token.txt
+api_keys/
+tokens/
+
+# Editor directories
+.editorconfig.local
+
+# macOS
+.AppleDouble
+.LSOverride
+
+# Windows
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+.directory
+.Trash-*
+
+# Ignore compiled TypeScript
+frontend/**/*.js
+frontend/**/*.js.map
+!frontend/vite.config.js
+!frontend/jest.config.js
+
+# Ignore build artifacts
+*.whl

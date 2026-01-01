@@ -1,0 +1,35 @@
+# .coveragerc - Coverage configuration file
+
+[run]
+source = 
+    lib
+    services
+    workflows
+    apps
+
+branch = true
+omit =
+    */tests/*
+    */test_*.py
+    */__init__.py
+    */conftest.py
+    .venv/*
+    */form5500_legacy/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    ^\s*pass\s*$
+    ^\s*\.\.\.\s*$
+    @abstract
+
+precision = 2
+show_missing = true
+
+[html]
+directory = htmlcov

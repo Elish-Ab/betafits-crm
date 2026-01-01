@@ -1,0 +1,10 @@
+pandas
+numpy
+requests
+python-dotenv
+psycopg2-binary
+SQLAlchemy
+PyPDF2
+reportlab
+PyMuPDF
+tqdm
