@@ -4,11 +4,6 @@ This module contains client implementations for interacting with external servic
 like Supabase, Graphiti, OpenRouter, Gmail, and Vector databases.
 """
 
-from lib.integrations.gmail_client import (
-    GmailClient,
-    get_gmail_client,
-    reset_gmail_client,
-)
 from lib.integrations.openrouter_client import (
     OpenRouterClient,
     get_openrouter_client,
@@ -37,7 +32,6 @@ except ImportError:
     _graphiti_available = False
 
 __all__ = [
-    "GmailClient",
     "get_gmail_client",
     "reset_gmail_client",
     "OpenRouterClient",

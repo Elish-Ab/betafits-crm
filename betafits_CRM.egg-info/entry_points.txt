@@ -1,3 +1,0 @@
-[console_scripts]
-betafits-email-pipeline = apps.email_ingestor_worker.main:main
-betafits-email-server = apps.email_ingestor_server.main:main
