@@ -32,9 +32,18 @@ LangGraph orchestration workflows:
 Shared foundational code:
 - `config/` - Configuration modules
 - `models/` - Pydantic models and state definitions
-- `integrations/` - External service adapters
-- `utils/` - Utility functions
+- `integrations/` - External service adapters (Airtable, Graphiti, OpenRouter, Vector DB)
+- `utils/` - Utility functions (including Airtable LangGraph logging)
 - `prompts/` - LLM prompts
+
+## Airtable Integration
+Universal LangGraph workflow logging is integrated via Airtable Operations Base:
+- **Tables**: LG Runs, LG State Snapshots
+- **Client**: `lib/integrations/airtable_client.py`
+- **Utilities**: `lib/utils/lg_logging_airtable.py`
+- **Examples**: `examples/airtable_logging_demo.py`
+
+All LangGraph workflows log execution metadata, state snapshots, and error tracking to Airtable for observability and debugging.
 
 ### frontend/
 React-based CRM portal and UI

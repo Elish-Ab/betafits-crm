@@ -8,6 +8,13 @@ from langgraph.graph import END, StateGraph
 
 from lib.config.form5500_config import CalculatedFieldsConfig, IngestConfig, ScriptConfig
 from lib.models.form5500_state import CalcState, IngestState
+from lib.utils.lg_logging_airtable import (
+    complete_lg_run,
+    create_lg_run,
+    create_state_envelope,
+    create_state_snapshot,
+    fail_lg_run,
+)
 from .nodes import calc as calc_nodes
 from .nodes import ingest as ingest_nodes
 from .nodes import script_runner
@@ -53,10 +60,49 @@ def build_ingest_graph(config: IngestConfig):
 
 
 def run_ingest(config: IngestConfig) -> Dict[str, Any]:
-    graph = build_ingest_graph(config)
-    initial_state: IngestState = {}
-    final_state = graph.invoke(initial_state)
-    return final_state
+    """Run Form 5500 ingestion workflow with Airtable logging."""
+    # Create Airtable run
+    run_record_id = create_lg_run(
+        environment="Dev",
+        input_summary=f"Form 5500 CSV ingestion: {config.csv_path.name}",
+        input_payload={
+            "csv_path": str(config.csv_path),
+            "table": config.table,
+            "schema": config.database.schema,
+            "dry_run": config.dry_run,
+        }
+    )
+    
+    try:
+        graph = build_ingest_graph(config)
+        initial_state: IngestState = {"airtable_run_id": run_record_id}
+        
+        # Execute workflow
+        final_state = graph.invoke(initial_state)
+        
+        # Log success
+        complete_lg_run(
+            run_record_id,
+            output_payload={
+                "status": "completed",
+                "validation_summary": final_state.get("validation_summary"),
+                "upsert_summary": final_state.get("upsert_summary"),
+            }
+        )
+        
+        return final_state
+        
+    except Exception as e:
+        # Log failure
+        fail_lg_run(
+            run_record_id,
+            error_message=str(e),
+            error_payload={
+                "error_type": type(e).__name__,
+                "step": "form5500_ingestion"
+            }
+        )
+        raise
 
 
 def build_script_graph(config: ScriptConfig):
