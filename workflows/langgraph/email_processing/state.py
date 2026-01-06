@@ -42,6 +42,8 @@ class PipelineState(TypedDict, total=False):
     - relation_extractor_node (deprecated)
     """
 
+    run_id: str
+
     # ========================================================================
     # Node 1: email_router_node
     # ========================================================================
