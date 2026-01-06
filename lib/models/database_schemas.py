@@ -14,7 +14,7 @@ Tables:
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, List, Literal, Optional, Dict
+from typing import Any, Literal, Optional, Dict
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator

@@ -27,7 +27,6 @@ from langgraph.graph.state import CompiledStateGraph
 from lib.config.settings import get_settings
 from lib.integrations.supabase.logging_client import LoggingDBClient
 from lib.models.database_schemas import (
-    LGEnvironment,
     LGRun,
     LGRunStatus,
     LGTriggerType,
