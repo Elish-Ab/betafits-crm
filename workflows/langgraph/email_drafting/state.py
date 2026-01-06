@@ -11,6 +11,7 @@ from lib.models.io_formats import (
 
 
 class PipelineState(TypedDict, total=False):
+    run_id: str
     drafting_scenario: EmailDraftingScenario
 
     context_bundle: ContextBundle
