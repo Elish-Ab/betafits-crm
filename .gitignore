@@ -227,3 +227,6 @@ frontend/**/*.js.map
 
 # Ignore build artifacts
 *.whl
+
+.langgraph_api
+downloaded_files
