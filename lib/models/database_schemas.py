@@ -14,7 +14,8 @@ Tables:
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, List, Literal, Optional
+from typing import Any, Literal, Optional, Dict
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -305,102 +306,67 @@ class ValidationLog(BaseModel):
 
     # Indexes: email_id (FK), pipeline_execution_id, final_status, created_at
 
+###############################################################
+# Models for State Management and Logging                     #
+###############################################################
 
-# ============================================================================
-# KGEntities Table (Optional - Caching of KG nodes)
-# ============================================================================
-
-
-class KGEntity(BaseModel):
-    """Schema for 'kg_entities' table (optional, for caching KG node info).
-
-    Stores cached entity information from Neo4j/Graphiti for quick lookup.
-    """
-
-    model_config = ConfigDict(str_strip_whitespace=True)
-
-    id: Optional[str] = Field(default=None, description="Primary key (UUID)")
-    entity_id: str = Field(..., description="KG node ID (from Neo4j)")
-    entity_type: str = Field(
-        ..., description="Type: Company, Contact, Opportunity, etc."
-    )
-    entity_name: str = Field(..., description="Entity name/value")
-    entity_data: dict[str, Any] = Field(
-        default_factory=dict, description="Full entity JSON"
-    )
-    last_seen_in_email: Optional[str] = Field(
-        default=None, description="Last email mentioning this entity"
-    )
-    mention_count: int = Field(default=0, description="Total mentions", ge=0)
-    created_at: datetime = Field(
-        default_factory=datetime.utcnow, description="When cached"
-    )
-    updated_at: datetime = Field(
-        default_factory=datetime.utcnow, description="When last updated"
-    )
-
-    # Indexes: entity_id (UNIQUE), entity_type, entity_name
+class LGRunStatus(str, Enum):
+    running = "running"
+    completed = "completed"
+    failed = "failed"
+    paused = "paused"
+    cancelled = "cancelled"
 
 
-# ============================================================================
-# RAGVectors Table (Supabase pgvector)
-# ============================================================================
+class LGTriggerType(str, Enum):
+    slack = "slack"
+    schedule = "schedule"
+    api = "api"
+    manual = "manual"
+    internal_event = "internal_event"
 
 
-class RAGVector(BaseModel):
-    """Schema for 'rag_vectors' table (pgvector in Supabase).
+class LGEnvironment(str, Enum):
+    prod = "prod"
+    staging = "staging"
+    dev = "dev"
+    local = "local"
 
-    Stores vector embeddings for email content and context for semantic search.
-    Uses pgvector extension. Vectors are 1536-dimensional (OpenRouter standard).
-    """
 
-    model_config = ConfigDict(str_strip_whitespace=True)
+class LGRun(BaseModel):
+    # Primary keys
+    id: Optional[UUID] = Field(default_factory=uuid4)
+    thread_id: str
 
-    id: Optional[str] = Field(default=None, description="Primary key (UUID)")
-    email_id: str = Field(..., description="FK to received_emails.email_id")
-    chunk_index: int = Field(
-        default=0, description="Chunk index if email split into multiple", ge=0
-    )
-    content: str = Field(..., description="Text content that was embedded")
-    embedding: list[float] = Field(
-        ..., description="1536-dimensional vector (pgvector type)"
-    )
-    content_type: str = Field(
-        default="email_body",
-        description="Type: email_body, email_subject, context",
-    )
-    metadata: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Metadata: tokens, model_used, chunk_size, etc. (JSON)",
-    )
-    created_at: datetime = Field(
-        default_factory=datetime.utcnow, description="When upserted"
-    )
 
-    @field_validator("embedding", mode="before")
-    @classmethod
-    def parse_pgvector_embedding(cls, v: Any) -> Any:
-        """Parse pgvector string representation to list of floats.
+    # Relations
+    workflow_id: Optional[UUID] = None
+    workflow_name: Optional[str] = None
 
-        Supabase returns pgvector columns as strings like '[0.1,0.2,0.3]'.
-        This validator converts them to actual Python lists.
-        """
-        if v is None:
-            raise ValueError("embedding is required for RAGVector")
-        if isinstance(v, list):
-            return v
-        if isinstance(v, str):
-            # Parse string representation: '[0.1,0.2,0.3]' -> [0.1, 0.2, 0.3]
-            v = v.strip()
-            if v.startswith("[") and v.endswith("]"):
-                v = v[1:-1]  # Remove brackets
-            if not v:  # Empty string after removing brackets
-                raise ValueError("embedding cannot be empty")
-            try:
-                return [float(x.strip()) for x in v.split(",") if x.strip()]
-            except (ValueError, AttributeError) as e:
-                raise ValueError(f"Invalid embedding format: {e}")
-        return v
+    # Trigger info
+    triggered_by: LGTriggerType
+    trigger_source_id: Optional[str] = None
 
-    # Indexes: email_id (FK), content_type
-    # Vector index: embedding (pgvector index for similarity search)
+    # Timestamps
+    created_at: Optional[datetime] = Field(default_factory=datetime.now)
+    updated_at: Optional[datetime] = Field(default_factory=datetime.now)
+    ended_at: Optional[datetime] = None
+
+    # State
+    status: LGRunStatus
+    environment: LGEnvironment
+
+    # Input / output
+    input_summary: Optional[str] = None
+    input_payload: Optional[Dict[str, Any]] = None
+
+    output_summary: Optional[str] = None
+    output_payload: Optional[Dict[str, Any]] = None
+
+    # Errors
+    error_message: Optional[str] = None
+    error_payload: Optional[Dict[str, Any]] = None
+
+    model_config = {
+        "from_attributes": True
+    }

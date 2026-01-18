@@ -20,10 +20,19 @@ Pipeline flow (8 nodes):
 
 import logging
 from typing import Any, Optional, Union
+import uuid
 from fastapi import Request
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
-from lib.models.database_schemas import ReceivedEmail, SentEmail
+from lib.config.settings import get_settings
+from lib.integrations.supabase.logging_client import LoggingDBClient
+from lib.models.database_schemas import (
+    LGRun,
+    LGRunStatus,
+    LGTriggerType,
+    ReceivedEmail,
+    SentEmail,
+)
 from workflows.langgraph.email_processing.nodes.opportunity_matcher import (
     opportunity_matcher_node,
 )
@@ -31,6 +40,169 @@ from workflows.langgraph.email_processing.state import PipelineState
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
 logger = logging.getLogger(__name__)
+
+
+def _serialize_value(value: Any) -> Any:
+    """Convert Pydantic models and other complex types to JSON-serializable format.
+
+    Args:
+        value: Value to serialize.
+
+    Returns:
+        JSON-serializable version of the value.
+    """
+    if hasattr(value, "model_dump"):
+        # Pydantic v2 model
+        return value.model_dump()
+    elif hasattr(value, "dict"):
+        # Pydantic v1 model
+        return value.dict()
+    elif isinstance(value, dict):
+        return {k: _serialize_value(v) for k, v in value.items()}
+    elif isinstance(value, (list, tuple)):
+        return [_serialize_value(v) for v in value]
+    return value
+
+
+def _build_pipeline_result(
+    email: Union[ReceivedEmail, SentEmail],
+    final_state: PipelineState,
+    start_time: float,
+) -> dict[str, Any]:
+    """Construct comprehensive pipeline result from final state.
+
+    The email processing pipeline ingests emails and updates the knowledge graph
+    and database. This builds a result that captures:
+    - Email parsing and deduplication
+    - Classification results
+    - Opportunity matching
+    - Contact extraction
+    - Knowledge graph and RAG updates
+    - Validation and audit trail
+
+    Args:
+        email: The original email being processed.
+        final_state: The final PipelineState after all nodes complete.
+        start_time: Pipeline start time for duration calculation.
+
+    Returns:
+        Dictionary containing:
+            - Basic info: email_id, message_id, pipeline_id
+            - Status: success, final_status
+            - Processing: duplicate, classification, opportunity, contacts
+            - KG/RAG: knowledge_graph and vector_index updates
+            - Database: storage status
+            - Validation: errors, warnings, audit log
+            - Performance: pipeline_duration_seconds
+    """
+    import time
+
+    pipeline_duration = time.time() - start_time
+
+    # Determine overall success based on validation_log
+    validation_log = final_state.get("validation_log")
+    final_status = validation_log.final_status if validation_log else "unknown"
+    success = final_status == "success"
+
+    # Identify if pipeline was short-circuited and why
+    short_circuit_reason = None
+    if final_state.get("is_duplicate"):
+        short_circuit_reason = "duplicate_email"
+    elif final_state.get("should_skip"):
+        short_circuit_reason = "spam_classification"
+
+    # Extract email metadata
+    processing_mode = final_state.get("processing_mode", "incoming")
+    email_stored = final_state.get("are_email_and_contacts_stored", False)
+
+    # Extract classification results
+    labeled_email = final_state.get("labeled_email")
+    classification = None
+    if labeled_email:
+        classification = {
+            "label": labeled_email.label,
+            "confidence": labeled_email.confidence,
+        }
+
+    # Extract matched opportunity
+    matched_opp = final_state.get("matched_opportunity")
+    opportunity_info = None
+    if matched_opp:
+        opportunity_info = {
+            "id": matched_opp.selected_opportunity.id,
+            "title": matched_opp.selected_opportunity.title,
+            "matched": matched_opp.reasoning,
+            "match_confidence": matched_opp.confidence,
+        }
+
+    # Extract related contacts
+    related_contacts = final_state.get("related_contacts", [])
+    contacts_info = {
+        "count": len(related_contacts),
+        "linked_to_opportunity": final_state.get(
+            "are_related_contacts_linked_to_opportunity", False
+        ),
+    }
+
+    # Extract KG/RAG update status
+    kg_rag_updates = {
+        "knowledge_graph": {
+            "updated": final_state.get("is_kg_updated", False),
+            "communities_built": final_state.get("are_communities_built", False),
+        },
+        "vector_index": {
+            "opportunity_index_updated": final_state.get(
+                "is_opportunity_index_rag_updated", False
+            ),
+        },
+    }
+
+    # Extract validation log details
+    validation_details = None
+    errors = []
+    warnings = []
+    if validation_log:
+        validation_details = {
+            "final_status": validation_log.final_status,
+            "total_duration_seconds": validation_log.total_duration_seconds,
+        }
+        errors = validation_log.errors
+        warnings = validation_log.warnings
+
+    # Build comprehensive result
+    pipeline_result = {
+        # ===== Email Identification =====
+        "email_id": email.message_id,
+        "pipeline_id": final_state.get("pipeline_execution_id", "unknown"),
+        "processing_mode": processing_mode,
+        # ===== Status =====
+        "success": success,
+        "final_status": final_status,
+        "short_circuit_reason": short_circuit_reason,
+        # ===== Email Processing =====
+        "email": {
+            "is_duplicate": final_state.get("is_duplicate", False),
+            "stored": email_stored,
+        },
+        # ===== Classification =====
+        "classification": classification,
+        # ===== Opportunity Matching =====
+        "matched_opportunity": opportunity_info,
+        # ===== Contact Extraction =====
+        "contacts": contacts_info,
+        # ===== Knowledge Graph & RAG =====
+        "kg_rag_updates": kg_rag_updates,
+        # ===== Validation & Audit =====
+        "validation": validation_details,
+        "errors": errors,
+        "warnings": warnings,
+        "validation_log": _serialize_value(validation_log),
+        # ===== Performance =====
+        "pipeline_duration_seconds": pipeline_duration,
+        "user_id": final_state.get("user_id"),
+    }
+
+    return pipeline_result
 
 
 def _should_skip_processing(state: PipelineState) -> str:
@@ -161,34 +333,39 @@ async def process_email(
     email: Union[ReceivedEmail, SentEmail],
     selected_opportunity_id: Optional[str] = None,
 ) -> dict[str, Any]:
-    """Orchestrator function: Process a raw email through the full pipeline.
+    """Orchestrator function: Process an email through the knowledge graph ingestion pipeline.
 
-    This is the main entry point for the email processing pipeline. It:
-    1. Takes a raw email dict
-    2. Initializes PipelineState
-    3. Runs the graph to completion
-    4. Returns final state with sent_status and validation_log
+    This is the main entry point for email ingestion. The pipeline:
+    1. Parses, normalizes, and deduplicates the email
+    2. Classifies it (crm, customer_success, spam)
+    3. Matches it to a sales opportunity
+    4. Extracts entities/relations and updates the knowledge graph via Graphiti
+    5. Updates the vector index with opportunity embeddings
+    6. Stores email and contacts in the database
+    7. Validates the complete process and logs results
 
     Args:
-        raw_email_input: Raw email dict with fields:
-            - message_id: str (unique Gmail message ID)
-            - from_email: str (sender email)
-            - to_emails: list[str] (recipients)
-            - cc_emails: list[str] (CC recipients)
-            - subject: str (email subject)
-            - body: str (email body text)
-            - thread_id: str (Gmail thread ID, optional)
-            - received_at: str (ISO 8601 timestamp)
-            - attachments: list[dict] (attachment metadata, optional)
-        selected_opportunity_id: Optional[str] (pre-selected opportunity ID)
+        request: FastAPI request object (contains graph from app.state).
+        email: Union[ReceivedEmail, SentEmail] - the email to process.
+        selected_opportunity_id: Optional pre-selected opportunity ID.
 
     Returns:
-        Final state dict with:
-            - email_id: str (original email ID)
-            - sent_status: str ("sent", "queued_for_approval", etc.)
-            - message_id: Optional[str] (Gmail message ID if sent)
-            - validation_log: ResponseValidationLog (audit trail)
-            - pipeline_duration_seconds: float (total execution time)
+        Dictionary with processing results:
+            - email_id: Original email message ID
+            - pipeline_id: Unique execution ID
+            - processing_mode: "incoming" or "outgoing"
+            - success: Boolean success flag
+            - final_status: "success", "partial_success", or "failure"
+            - short_circuit_reason: "duplicate_email" or "spam_classification" if skipped
+            - email: {is_duplicate, stored}
+            - classification: {label, confidence}
+            - matched_opportunity: {id, title, matched, match_confidence}
+            - contacts: {count, linked_to_opportunity}
+            - kg_rag_updates: Knowledge graph and vector index update status
+            - validation: Validation metrics (KG nodes/edges, RAG vectors)
+            - errors/warnings: Processing issues
+            - validation_log: Complete audit trail
+            - pipeline_duration_seconds: Total execution time
 
     Raises:
         ValueError: If email processing fails critically.
@@ -196,27 +373,48 @@ async def process_email(
     import time
 
     start_time = time.time()
+    logging_client = await LoggingDBClient.create()
+
+    thread_id = email.message_id
+    workflow_name = "email_processing_pipeline"
+
+    lg_run = LGRun(
+        thread_id=thread_id,
+        workflow_id=uuid.uuid5(uuid.NAMESPACE_DNS, workflow_name),
+        workflow_name=workflow_name,
+        triggered_by=LGTriggerType.internal_event,
+        status=LGRunStatus.running,
+        environment=get_settings().get_lg_env_type(),
+        input_payload={
+            "email": _serialize_value(email),
+            "selected_opportunity_id": selected_opportunity_id,
+        },
+        input_summary=f"Processing email {email.message_id} in thread {thread_id}",
+    )
+
+    # Initialize pipeline state
+    initial_state: PipelineState = {
+        "email": email,
+    }
+
+    if selected_opportunity_id:
+        initial_state["selected_opportunity_id"] = selected_opportunity_id
+
+    # Get compiled graph (cached singleton)
+    graph: CompiledStateGraph = request.app.state.email_processing_graph
+    
+
+    initial_state["run_id"] = await logging_client.create_lg_run(lg_run)
 
     try:
         logger.info(f"[Orchestrator] Starting pipeline for email {email.message_id}")
-
-        # Initialize pipeline state
-        initial_state: PipelineState = {
-            "email": email,
-        }
-
-        if selected_opportunity_id:
-            initial_state["selected_opportunity_id"] = selected_opportunity_id
-
-        # Get compiled graph (cached singleton)
-        graph = request.app.state.email_processing_graph
 
         # Run graph to completion
         final_state = await graph.ainvoke(
             input=initial_state,
             config={
                 "configurable": {
-                    "thread_id": email.message_id,
+                    "thread_id": thread_id,
                 }
             },
         )
@@ -233,34 +431,50 @@ async def process_email(
             else:
                 serializable_state[key] = value
 
-        return serializable_state
+        # Build comprehensive pipeline result
+        pipeline_result = _build_pipeline_result(
+            email=email,
+            final_state=PipelineState(**final_state),
+            start_time=start_time,
+        )
 
-        # # Extract final outputs
-        # pipeline_result = {
-        #     "email_id": email.message_id,
-        #     "success": True,
-        #     "sent_status": final_state.get("email_sent", {}).get(
-        #         "sent_status", "unknown"
-        #     ),
-        #     "message_id": final_state.get("email_sent", {}).get("sent_message_id"),
-        #     "validation_log": final_state.get("validation_log"),
-        #     "pipeline_duration_seconds": time.time() - start_time,
-        # }
 
-        # logger.info(
-        #     f"[Orchestrator] Pipeline completed for {email.message_id} "
-        #     f"in {pipeline_result['pipeline_duration_seconds']:.2f}s "
-        #     f"(status: {pipeline_result['sent_status']})"
-        # )
+        try:
+            lg_run.output_payload = pipeline_result
+            lg_run.output_summary = (
+                f"Pipeline completed with status {pipeline_result['final_status']}"
+                f" in {pipeline_result['pipeline_duration_seconds']:.2f}s"
+            )
+            lg_run.status = LGRunStatus.completed
+        
+            await logging_client.update_lg_run(
+                run_id=initial_state["run_id"],
+                run=lg_run
+            )
+        except Exception as log_error:
+            logger.error(f"[Orchestrator] Failed to log LGRun results: {log_error}")
 
-        # return pipeline_result
+        logger.info(
+            f"[Orchestrator] Pipeline completed for {email.message_id} "
+            f"in {pipeline_result['pipeline_duration_seconds']:.2f}s "
+            f"with status {pipeline_result['final_status']}"
+        )
 
-    except ValueError as ve:
-        logger.error(f"[Orchestrator] Input validation failed: {ve}")
-        raise
+        return pipeline_result
+
     except Exception as error:
         duration = time.time() - start_time
         logger.error(f"[Orchestrator] Pipeline failed after {duration:.2f}s: {error}")
+
+        try:
+            lg_run.status = LGRunStatus.failed
+            await logging_client.update_lg_run(
+                run_id=initial_state["run_id"],
+                run=lg_run
+            )
+        except Exception as log_error:
+            logger.error(f"[Orchestrator] Failed to log LGRun results: {log_error}")
+        
         raise ValueError(f"Email processing pipeline failed: {error}") from error
 
 

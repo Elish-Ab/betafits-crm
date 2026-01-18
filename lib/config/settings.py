@@ -26,6 +26,8 @@ from typing import Literal, Optional, Union
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from lib.models.database_schemas import LGEnvironment
+
 logger = logging.getLogger(__name__)
 
 
@@ -356,6 +358,17 @@ class Settings(BaseSettings):
     def is_prod(self) -> bool:
         """Check if running in production environment."""
         return self.environment == "prod"
+    
+    def get_lg_env_type(self) -> LGEnvironment:
+        """Get the LGEnvironment enum value for the current environment."""
+        if self.is_dev():
+            return LGEnvironment.dev
+        elif self.is_staging():
+            return LGEnvironment.staging
+        elif self.is_prod():
+            return LGEnvironment.prod
+        else:
+            raise ValueError(f"Unknown environment: {self.environment}")
 
     def log_config(self) -> None:
         """Log non-sensitive configuration for debugging.

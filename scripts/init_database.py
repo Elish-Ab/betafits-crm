@@ -22,10 +22,16 @@ Requirements:
 """
 
 import logging
+import os
 import sys
 from typing import Any
 
+from dotenv import load_dotenv
+
 from lib.integrations.supabase.supabase_client import get_supabase_client
+
+# Load environment variables from .env file
+load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -186,6 +192,54 @@ CREATE INDEX IF NOT EXISTS idx_validation_logs_final_status ON crm.validation_lo
 CREATE INDEX IF NOT EXISTS idx_validation_logs_created_at ON crm.validation_logs(created_at DESC);
 
 -- ============================================================================
+-- Table: lg_runs (Universal LangGraph Run Tracking)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS crm.lg_runs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    run_id TEXT UNIQUE NOT NULL,  -- Format: LG-RUN-YYYY-MM-DD-XXXX
+    workflow TEXT NOT NULL,        -- e.g., "Email Processing", "Form 5500 Ingestion"
+    triggered_by TEXT NOT NULL,    -- e.g., "Gmail API", "CLI", "API Request"
+    environment TEXT NOT NULL,     -- e.g., "production", "development", "staging"
+    status TEXT NOT NULL CHECK (status IN ('started', 'running', 'completed', 'failed', 'cancelled')),
+    step_log JSONB DEFAULT '[]',   -- Array of step executions with timestamps
+    error_details JSONB,           -- Error information if failed
+    metadata JSONB DEFAULT '{}',   -- Additional context (user, trigger details, etc.)
+    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMPTZ,
+    duration_seconds NUMERIC(10,3),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes for lg_runs
+CREATE INDEX IF NOT EXISTS idx_lg_runs_run_id ON crm.lg_runs(run_id);
+CREATE INDEX IF NOT EXISTS idx_lg_runs_workflow ON crm.lg_runs(workflow);
+CREATE INDEX IF NOT EXISTS idx_lg_runs_status ON crm.lg_runs(status);
+CREATE INDEX IF NOT EXISTS idx_lg_runs_triggered_by ON crm.lg_runs(triggered_by);
+CREATE INDEX IF NOT EXISTS idx_lg_runs_environment ON crm.lg_runs(environment);
+CREATE INDEX IF NOT EXISTS idx_lg_runs_started_at ON crm.lg_runs(started_at DESC);
+
+-- ============================================================================
+-- Table: state_snapshots (Universal State Management)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS crm.state_snapshots (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    snapshot_id TEXT UNIQUE NOT NULL,        -- Unique identifier for this snapshot
+    run_id TEXT NOT NULL,                     -- Links to lg_runs.run_id
+    state_envelope JSONB NOT NULL,            -- Universal state envelope with schema_version, workflow_id, actor, phase, payload
+    checkpoint_id TEXT,                       -- Optional LangGraph checkpoint ID if using checkpointer
+    phase TEXT NOT NULL,                      -- Current workflow phase (e.g., "classify", "extract", "validate")
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT fk_lg_run FOREIGN KEY (run_id) REFERENCES crm.lg_runs(run_id) ON DELETE CASCADE
+);
+
+-- Indexes for state_snapshots
+CREATE INDEX IF NOT EXISTS idx_state_snapshots_snapshot_id ON crm.state_snapshots(snapshot_id);
+CREATE INDEX IF NOT EXISTS idx_state_snapshots_run_id ON crm.state_snapshots(run_id);
+CREATE INDEX IF NOT EXISTS idx_state_snapshots_phase ON crm.state_snapshots(phase);
+CREATE INDEX IF NOT EXISTS idx_state_snapshots_created_at ON crm.state_snapshots(created_at DESC);
+
+-- ============================================================================
 -- Table: kg_entities (Optional - for caching KG nodes)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS crm.kg_entities (
@@ -254,6 +308,14 @@ CREATE TRIGGER update_drafted_emails_updated_at
 DROP TRIGGER IF EXISTS update_kg_entities_updated_at ON crm.kg_entities;
 CREATE TRIGGER update_kg_entities_updated_at
     BEFORE UPDATE ON crm.kg_entities
+    FOR EACH ROW
+    EXECUTE FUNCTION crm.update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_lg_runs_updated_at ON crm.lg_runs;
+CREATE TRIGGER update_lg_runs_updated_at
+    BEFORE UPDATE ON crm.lg_runs
+    FOR EACH ROW
+    EXECUTE FUNCTION crm.update_updated_at_column();
     FOR EACH ROW
     EXECUTE FUNCTION crm.update_updated_at_column();
 
