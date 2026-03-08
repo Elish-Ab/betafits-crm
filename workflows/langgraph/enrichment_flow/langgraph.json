@@ -1,0 +1,11 @@
+{
+  "graphs": {
+    "enrichment_flow": {
+      "path": "workflows.langgraph.enrichment_flow.graph:graph",
+      "name": "Enrichment Flow"
+    }
+  },
+  "dependencies": [
+    "/home/adi/Downloads/betafit/betafits-crm"
+  ]
+}

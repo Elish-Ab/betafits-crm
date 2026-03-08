@@ -67,7 +67,7 @@ class SupabaseClient:
         self._timeout = settings.request_timeout
         self._max_retries = settings.retry_max_attempts
         self._backoff_factor = settings.retry_backoff_factor
-        self._schema = "crm"  # Default schema for all operations
+        self._schema = (settings.supabase_schema or "public").strip()
 
     @classmethod
     async def create(cls) -> "SupabaseClient":
@@ -106,6 +106,9 @@ class SupabaseClient:
             Table reference configured for the crm schema.
         """
         return self._client.schema(self._schema).table(table_name)
+
+    def table(self, table_name: str):
+        return self._get_table(table_name)
 
     def _log_operation(
         self,
