@@ -1,5 +1,4 @@
-"""Enrichment services module.
+"""Data Enrichment domain."""
+from .graph import data_enrichment_graph, build_data_enrichment_graph
 
-Provides company matching, scraping, and enrichment functionality
-for the CRM data pipeline.
-"""
+__all__ = ["data_enrichment_graph", "build_data_enrichment_graph"]
