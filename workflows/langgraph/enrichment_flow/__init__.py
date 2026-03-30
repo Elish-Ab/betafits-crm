@@ -1,5 +1,4 @@
-"""Enrichment workflow graph."""
+"""Data Enrichment domain."""
+from .graph import data_enrichment_graph, build_data_enrichment_graph
 
-from workflows.langgraph.enrichment_flow.graph import graph
-
-__all__ = ["graph"]
+__all__ = ["data_enrichment_graph", "build_data_enrichment_graph"]
